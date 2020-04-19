@@ -24,7 +24,7 @@ import com.alibaba.fastjson.JSON;
 import org.apache.commons.lang.StringUtils;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
-import org.apache.curator.retry.ExponentialBackoffRetry;
+import org.apache.curator.retry.RetryNTimes;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -35,6 +35,7 @@ import java.util.List;
 
 /**
  * zookeeper 配置类
+ *
  * @author lixiangqian
  */
 @Configuration
@@ -44,9 +45,8 @@ public class ZookeeperConfig implements InitializingBean {
 
     private String host;
     private String ruleRootPath;
-
-    public static final int RETRY_TIMES = 3;
-    public static final int SLEEP_TIME = 1000;
+    private Integer retry = 1;
+    private Integer retryTime = 200;
 
 
     public final static String RULE_TYPE_FLOW = "flowRule";
@@ -86,7 +86,9 @@ public class ZookeeperConfig implements InitializingBean {
 
     @Bean
     public CuratorFramework zkClient() {
-        CuratorFramework zkClient = CuratorFrameworkFactory.newClient(host, new ExponentialBackoffRetry(SLEEP_TIME, RETRY_TIMES));
+        CuratorFramework zkClient = CuratorFrameworkFactory.builder().connectString(host).sessionTimeoutMs(2000).connectionTimeoutMs(2000)
+                .namespace(ruleRootPath)
+                .retryPolicy(new RetryNTimes(retry, retryTime)).build();
         zkClient.start();
 
         return zkClient;
@@ -96,10 +98,15 @@ public class ZookeeperConfig implements InitializingBean {
     public void afterPropertiesSet() throws Exception {
         host = ConfigUtil.getConfig("sentinel.dashboard.zk.host", host);
         ruleRootPath = ConfigUtil.getConfig("sentinel.dashboard.zk.ruleRootPath", ruleRootPath);
+        if (ruleRootPath.startsWith("/")){
+            ruleRootPath = ruleRootPath.substring(1);
+        }
+        retry = Integer.valueOf(ConfigUtil.getConfig("sentinel.dashboard.zk.retry", retry.toString()));
+        retryTime = Integer.valueOf(ConfigUtil.getConfig("sentinel.dashboard.zk.retryTime", retryTime.toString()));
     }
 
     public String getPath(String appName, String ruleType) {
-        StringBuilder stringBuilder = new StringBuilder(ruleRootPath);
+        StringBuilder stringBuilder = new StringBuilder();
 
         if (StringUtils.isBlank(appName)) {
             return stringBuilder.toString();

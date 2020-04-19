@@ -61,7 +61,7 @@ app.service('SystemServiceV2', ['$http', function ($http) {
 
   this.deleteRule = function (rule) {
     return $http({
-      url: '/v2/flow/rule/' + rule.id,
+      url: '/v2/system/rule/' + rule.id,
       method: 'DELETE'
     });
   };
